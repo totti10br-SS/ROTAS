@@ -31,6 +31,17 @@ h1,h2,h3{font-family:'Barlow Condensed',sans-serif;letter-spacing:1px;text-trans
 .stepper span{min-width:20px;text-align:center;font-weight:600;}
 select,input[type=text]{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:8px;font-family:inherit;font-size:13px;margin-bottom:8px;}
 .modo{display:flex;gap:8px;margin-bottom:8px;}
+.flabel{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin:12px 0 6px;}
+.chips{display:flex;flex-wrap:wrap;gap:6px;}
+.chips label{display:inline-flex;align-items:center;gap:5px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;user-select:none;}
+.chips label:hover{border-color:rgba(255,255,255,.25);}
+.chips input{display:none;}
+.chips label.on{background:var(--accent);color:#00202a;border-color:var(--accent);font-weight:600;}
+.checklist{max-height:190px;overflow-y:auto;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:4px;}
+.checklist label{display:flex;align-items:center;gap:8px;padding:7px 8px;font-size:13px;cursor:pointer;border-radius:6px;line-height:1.2;}
+.checklist label:hover{background:rgba(255,255,255,.05);}
+.checklist input{width:16px;height:16px;accent-color:var(--accent);flex-shrink:0;}
+.checklist .none{color:var(--muted);font-size:12px;padding:10px 8px;font-style:italic;}
 .modo button{flex:1;padding:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);border-radius:8px;cursor:pointer;font-family:'Barlow Condensed';font-weight:700;letter-spacing:1px;text-transform:uppercase;font-size:13px;}
 .modo button.on{background:var(--accent);color:#00202a;border-color:var(--accent);}
 .btn-main{width:100%;padding:13px;background:var(--accent);color:#00202a;border:none;border-radius:10px;font-family:'Barlow Condensed';font-weight:700;font-size:17px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;}
@@ -95,9 +106,13 @@ select,input[type=text]{width:100%;background:var(--surface2);border:1px solid v
     </div>
     <div class="grp">
       <h3>Filtros</h3>
-      <select id="f-meso" multiple size="6"></select>
-      <select id="f-uf" multiple size="3"></select>
-      <select id="f-carne" multiple size="4"></select>
+      <div class="flabel">UF</div>
+      <div class="chips" id="f-uf"></div>
+      <div class="flabel">Região (filtra pela UF)</div>
+      <div class="checklist" id="f-meso"></div>
+      <div class="flabel">Tipo de carne</div>
+      <div class="checklist" id="f-carne"></div>
+      <div class="flabel">Vendedor</div>
       <select id="f-vend"><option value="">Todos os vendedores</option></select>
     </div>
     <button class="btn-main" id="btn-montar" onclick="montar()">Montar rotas</button>
@@ -129,7 +144,7 @@ select,input[type=text]{width:100%;background:var(--surface2);border:1px solid v
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
 const CORES=["#35E0E5","#F5C800","#ff6b9d","#8b7dff","#3ddc84","#ff9f45","#5db4ff","#e05de0"];
-let MODO="automatico", FROTA={}, ULTIMO=null, MAP=null, LAYER=null, SEL=null;
+let MODO="automatico", FROTA={}, ULTIMO=null, MAP=null, LAYER=null, SEL=null, MESO_POR_UF={};
 
 function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2200);}
 function setModo(b){document.querySelectorAll(".modo button").forEach(x=>x.classList.remove("on"));b.classList.add("on");MODO=b.dataset.modo;}
@@ -153,23 +168,40 @@ async function carregarPool(force){
     <div class="stepper"><button onclick="stepFrota('${t}',-1)">−</button>
     <span id="q-${t}">0</span><button onclick="stepFrota('${t}',1)">+</button></div></div>`;}
   document.getElementById("frota").innerHTML=h;
-  fillSel("f-meso",d.mesorregioes);fillSel("f-uf",d.ufs);fillSel("f-carne",d.tipos_carne);
+  MESO_POR_UF=d.mesorregioes_por_uf||{};
+  renderUF(d.ufs);
+  renderMeso();
+  renderCheck("f-carne",d.tipos_carne);
   const v=document.getElementById("f-vend");d.vendedores.forEach(x=>v.insertAdjacentHTML("beforeend",`<option>${x}</option>`));
 }
-function fillSel(id,arr){const s=document.getElementById(id);
-  const lbl={"f-meso":"Região (opcional)","f-uf":"UF (opcional)","f-carne":"Tipo carne (opcional)"}[id]||"";
-  s.insertAdjacentHTML("afterbegin",`<option disabled style="color:#666">${lbl}</option>`);
-  arr.forEach(x=>s.insertAdjacentHTML("beforeend",`<option value="${x}">${x}</option>`));}
+function renderUF(ufs){
+  document.getElementById("f-uf").innerHTML=ufs.map(u=>
+    `<label><input type="checkbox" value="${u}"><span>${u}</span></label>`).join("");
+  document.querySelectorAll("#f-uf label").forEach(l=>{const i=l.querySelector("input");
+    i.addEventListener("change",()=>{l.classList.toggle("on",i.checked);renderMeso();});});
+}
+function renderMeso(){
+  const ufs=getChecked("f-uf"), box=document.getElementById("f-meso");
+  const fontes=ufs.length?ufs.map(u=>MESO_POR_UF[u]||[]):Object.values(MESO_POR_UF);
+  const regs=[...new Set([].concat(...fontes))].sort((a,b)=>a.localeCompare(b,"pt"));
+  const antes=new Set(getChecked("f-meso"));
+  box.innerHTML=regs.length?regs.map(m=>
+    `<label><input type="checkbox" value="${m}" ${antes.has(m)?"checked":""}>${m}</label>`).join("")
+    :'<div class="none">selecione UF</div>';
+}
+function renderCheck(id,arr){
+  document.getElementById(id).innerHTML=arr.length?arr.map(x=>
+    `<label><input type="checkbox" value="${x}">${x}</label>`).join(""):'<div class="none">—</div>';
+}
+function getChecked(id){return [...document.querySelectorAll("#"+id+" input:checked")].map(i=>i.value);}
 function stepFrota(t,d){FROTA[t]=Math.max(0,FROTA[t]+d);document.getElementById("q-"+t).textContent=FROTA[t];}
-function getSel(id){return [...document.getElementById(id).selectedOptions].map(o=>o.value).filter(v=>v);}
-
 async function montar(){
   const frota=Object.fromEntries(Object.entries(FROTA).filter(([k,v])=>v>0));
   if(!Object.keys(frota).length){toast("Selecione ao menos 1 caminhão");return;}
   const filtros={};
-  const meso=getSel("f-meso");if(meso.length)filtros.mesorregiao=meso;
-  const uf=getSel("f-uf");if(uf.length)filtros.uf=uf;
-  const carne=getSel("f-carne");if(carne.length)filtros.tipo_carne=carne;
+  const uf=getChecked("f-uf");if(uf.length)filtros.uf=uf;
+  const meso=getChecked("f-meso");if(meso.length)filtros.mesorregiao=meso;
+  const carne=getChecked("f-carne");if(carne.length)filtros.tipo_carne=carne;
   const vend=document.getElementById("f-vend").value;if(vend)filtros.vendedor=[vend];
   const btn=document.getElementById("btn-montar");btn.disabled=true;btn.textContent="Calculando…";
   try{

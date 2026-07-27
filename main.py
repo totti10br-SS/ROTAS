@@ -352,10 +352,13 @@ def root():
 @app.get("/pool")
 def get_pool(force: bool = False):
     p = pool_disponivel(force=force)
+    meso_por_uf = {}
+    for uf, grp in p.groupby("uf"):
+        meso_por_uf[uf] = sorted(grp["mesorregiao"].dropna().unique().tolist())
     return {
         "total": len(p), "kg": int(p["kg"].sum()), "cidades": int(p["cidade"].nunique()),
         "ufs": sorted(p["uf"].dropna().unique().tolist()),
-        "mesorregioes": sorted(p["mesorregiao"].dropna().unique().tolist()),
+        "mesorregioes_por_uf": meso_por_uf,
         "vendedores": sorted(p["vendedor"].dropna().unique().tolist()),
         "tipos_carne": sorted({t for v in p["tipo_carne"] for t in str(v).split(", ") if t}),
         "frota_cadastro": FROTA_CADASTRO,
