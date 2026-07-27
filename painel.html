@@ -62,6 +62,19 @@ select,input[type=text]{width:100%;background:var(--surface2);border:1px solid v
 .card .acts{display:flex;gap:6px;margin-top:8px;}
 .card .acts button{flex:1;padding:6px;font-size:11px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:6px;cursor:pointer;text-transform:uppercase;letter-spacing:.5px;font-family:'Barlow Condensed';font-weight:700;}
 .card .acts button.save{background:var(--ok);color:#003317;border-color:var(--ok);}
+.fbar{display:flex;align-items:center;gap:10px;padding:9px 18px;background:#12161d;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+.fbar-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+.fchip{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:20px;font-size:13px;border:0.5px solid rgba(255,255,255,.12);}
+.fchip.uf{background:rgba(53,224,229,.14);color:#35E0E5;border-color:rgba(53,224,229,.4);}
+.fchip.g{background:rgba(255,255,255,.06);color:#c9d1d9;}
+.det{margin-top:10px;border-top:1px solid var(--border);padding-top:8px;}
+.det-tabs{display:flex;gap:6px;margin-bottom:8px;}
+.det-tabs button{flex:1;padding:5px;font-size:11px;border:1px solid var(--border);background:var(--bg);color:var(--muted);border-radius:6px;cursor:pointer;text-transform:uppercase;letter-spacing:.5px;}
+.det-tabs button.on{color:var(--accent);border-color:var(--accent);}
+.det table{width:100%;font-size:12px;border-collapse:collapse;}
+.det td{padding:4px 4px;border-bottom:1px solid rgba(255,255,255,.05);color:#c9d1d9;}
+.det td.r{text-align:right;color:#fff;white-space:nowrap;}
+.det .sub{color:var(--muted);font-size:11px;}
 .bandeja{background:rgba(245,200,0,.09);border:1px solid rgba(245,200,0,.35);border-radius:10px;padding:12px;margin-bottom:10px;}
 .bandeja h3{color:var(--warn);font-size:14px;}
 .bandeja small{color:var(--warn);opacity:.85;font-size:12px;}
@@ -87,6 +100,11 @@ select,input[type=text]{width:100%;background:var(--surface2);border:1px solid v
     <div class="kpi"><b id="k-aloc">–</b><small>alocados</small></div>
     <div class="kpi"><b id="k-sobra" style="color:var(--warn)">–</b><small>sobra</small></div>
   </div>
+</div>
+
+<div class="fbar" id="fbar" style="display:none;">
+  <span class="fbar-lbl">filtros ativos</span>
+  <div id="fbar-chips" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;"></div>
 </div>
 
 <div class="wrap">
@@ -144,7 +162,7 @@ select,input[type=text]{width:100%;background:var(--surface2);border:1px solid v
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
 const CORES=["#35E0E5","#F5C800","#ff6b9d","#8b7dff","#3ddc84","#ff9f45","#5db4ff","#e05de0"];
-let MODO="automatico", FROTA={}, ULTIMO=null, MAP=null, LAYER=null, SEL=null, MESO_POR_UF={};
+let MODO="automatico", FROTA={}, ULTIMO=null, ULTIMO_REQ=null, MAP=null, LAYER=null, SEL=null, MESO_POR_UF={};
 
 function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2200);}
 function setModo(b){document.querySelectorAll(".modo button").forEach(x=>x.classList.remove("on"));b.classList.add("on");MODO=b.dataset.modo;}
@@ -203,6 +221,7 @@ async function montar(){
   const meso=getChecked("f-meso");if(meso.length)filtros.mesorregiao=meso;
   const carne=getChecked("f-carne");if(carne.length)filtros.tipo_carne=carne;
   const vend=document.getElementById("f-vend").value;if(vend)filtros.vendedor=[vend];
+  ULTIMO_REQ={frota,modo:MODO,filtros};
   const btn=document.getElementById("btn-montar");btn.disabled=true;btn.textContent="Calculando…";
   try{
     const r=await fetch("/montar",{method:"POST",headers:{"Content-Type":"application/json"},
@@ -216,7 +235,7 @@ function renderResultado(){
   const R=ULTIMO,rs=R.resumo;
   document.getElementById("k-aloc").textContent=rs.alocados;
   document.getElementById("k-sobra").textContent=rs.sobra;
-  // cards
+  renderFbar();
   let h="";
   R.cargas.forEach((c,i)=>{const cor=CORES[i%CORES.length];
     const nome=`Rota ${String.fromCharCode(65+i)} · ${c.veiculo}`;
@@ -226,7 +245,9 @@ function renderResultado(){
       <span class="ocup" style="color:${c.ocupacao>=95?'var(--ok)':'var(--warn)'}">${c.ocupacao}%</span></div>
       <div class="meta">${c.n_cidades} cidades · ${c.n_pedidos} ped · ${(c.peso_kg/1000).toFixed(2)}t / ${(c.cap_kg/1000)}t<br>
       <span style="opacity:.8">Itaperuna → ${cids}</span></div>
+      <div class="det" id="det-${i}" style="display:none;"></div>
       <div class="acts">
+        <button onclick="event.stopPropagation();toggleDet(${i})" id="detbtn-${i}">Ver conteúdo</button>
         <button onclick="event.stopPropagation();salvar(${i})" class="save">Salvar romaneio</button>
       </div></div>`;});
   document.getElementById("cargas").innerHTML=h||`<div class="empty">Nenhuma carga (pool vazio para os filtros).</div>`;
@@ -258,6 +279,47 @@ function focar(i){
   SEL=SEL===i?null:i;
   document.querySelectorAll(".card").forEach((c,j)=>c.classList.toggle("sel",j===SEL));
   LAYER.eachLayer(l=>{if(l instanceof L.Polyline){l.setStyle({opacity:SEL===null?.8:(l.cargaIdx===SEL?1:.12)});}});
+}
+
+function renderFbar(){
+  if(!ULTIMO_REQ){return;}
+  const f=ULTIMO_REQ.filtros||{}, chips=[];
+  const frotaTxt=Object.entries(ULTIMO_REQ.frota).map(([t,q])=>`${q} ${t}`).join(" + ");
+  chips.push(`<span class="fchip g">${frotaTxt}</span>`);
+  chips.push(`<span class="fchip g">${ULTIMO_REQ.modo==="automatico"?"Automático":"Seleção"}</span>`);
+  if(f.uf)chips.push(`<span class="fchip uf">UF: ${f.uf.join(", ")}</span>`);
+  if(f.mesorregiao)f.mesorregiao.forEach(m=>chips.push(`<span class="fchip uf">${m}</span>`));
+  if(f.tipo_carne)chips.push(`<span class="fchip g">Carne: ${f.tipo_carne.join(", ")}</span>`);
+  if(f.vendedor)chips.push(`<span class="fchip g">Vend: ${f.vendedor[0]}</span>`);
+  document.getElementById("fbar-chips").innerHTML=chips.join("");
+  document.getElementById("fbar").style.display="flex";
+}
+
+function toggleDet(i){
+  const d=document.getElementById("det-"+i), b=document.getElementById("detbtn-"+i);
+  if(d.style.display==="none"){d.dataset.aba=d.dataset.aba||"pedido";renderDet(i);d.style.display="block";b.textContent="Ocultar";}
+  else{d.style.display="none";b.textContent="Ver conteúdo";}
+}
+function switchAba(i,aba){const d=document.getElementById("det-"+i);d.dataset.aba=aba;renderDet(i);}
+function renderDet(i){
+  const c=ULTIMO.cargas[i], d=document.getElementById("det-"+i), aba=d.dataset.aba||"pedido";
+  const tabs=`<div class="det-tabs">
+    <button class="${aba==='pedido'?'on':''}" onclick="event.stopPropagation();switchAba(${i},'pedido')">Por pedido</button>
+    <button class="${aba==='produto'?'on':''}" onclick="event.stopPropagation();switchAba(${i},'produto')">Por produto</button></div>`;
+  let corpo="";
+  if(aba==="pedido"){
+    const peds=[];c.stops.forEach(s=>s.pedidos.forEach(p=>peds.push({...p,cidade:s.cidade})));
+    corpo="<table>"+peds.map(p=>`<tr>
+      <td>${p.pedido}<div class="sub">${p.cliente||""} · ${p.cidade}</div></td>
+      <td class="r">${p.kg.toLocaleString("pt-BR")} kg</td></tr>`).join("")+"</table>";
+  }else{
+    const rp=c.resumo_produto||[];
+    corpo=rp.length?("<table>"+rp.map(x=>`<tr>
+      <td>${x.produto}<div class="sub">${x.corte} · ${x.itens} itens</div></td>
+      <td class="r">${x.kg.toLocaleString("pt-BR")} kg</td></tr>`).join("")+"</table>")
+      :'<div class="sub">sem itens</div>';
+  }
+  d.innerHTML=tabs+corpo;
 }
 
 async function salvar(i){

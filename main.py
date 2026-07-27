@@ -364,11 +364,28 @@ def get_pool(force: bool = False):
         "frota_cadastro": FROTA_CADASTRO,
     }
 
+def resumo_produto(pedidos_ids):
+    """Agrega os ITENS (corte + produto) dos pedidos de uma carga, por kg."""
+    df = carregar_bruto()  # raw cacheado (nivel item)
+    sub = df[df["NUM_DOCTO"].isin(pedidos_ids)].copy()
+    if sub.empty:
+        return []
+    sub["kg"] = pd.to_numeric(sub["QTDE_KG"], errors="coerce").fillna(0.0)
+    g = (sub.groupby([sub["TIPO_CORTE"].fillna("-"), sub["desc_produto2"].fillna("-")])
+            .agg(kg=("kg", "sum"), itens=("ITEM", "count")).reset_index())
+    g.columns = ["corte", "produto", "kg", "itens"]
+    g = g.sort_values("kg", ascending=False)
+    return [{"corte": r["corte"], "produto": r["produto"],
+             "kg": int(round(r["kg"])), "itens": int(r["itens"])} for _, r in g.iterrows()]
+
+
 @app.post("/montar")
 def montar(req: MontarReq):
     p = pool_disponivel()
     p = aplicar_filtros(p, req.filtros)
     res = montar_cargas(p, req.frota, segundos=req.segundos)
+    for c in res["cargas"]:
+        c["resumo_produto"] = resumo_produto(c["pedidos_ids"])
     aloc = sum(c["n_pedidos"] for c in res["cargas"])
     cap_total = sum(FROTA_CADASTRO.get(t, 0)*q for t, q in req.frota.items())
     res["resumo"] = {
