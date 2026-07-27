@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ROTAS · Frinense</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+:root{--bg:#0d1117;--surface:#161b22;--surface2:#1e2430;--border:rgba(255,255,255,.09);
+  --text:#fff;--muted:#7a828e;--accent:#35E0E5;--warn:#F5C800;--ok:#3ddc84;}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column;}
+h1,h2,h3{font-family:'Barlow Condensed',sans-serif;letter-spacing:1px;text-transform:uppercase;}
+.bar{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:var(--surface);border-bottom:1px solid var(--border);gap:16px;flex-wrap:wrap;}
+.brand{font-family:'Bebas Neue';font-size:30px;letter-spacing:3px;line-height:1;}
+.brand span{color:var(--muted);font-size:14px;letter-spacing:1px;}
+.kpis{display:flex;gap:22px;}
+.kpi{text-align:center;}
+.kpi b{display:block;font-family:'Bebas Neue';font-size:26px;line-height:1;color:var(--accent);}
+.kpi small{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px;}
+.wrap{flex:1;display:grid;grid-template-columns:300px 1fr 340px;overflow:hidden;}
+.panel{background:var(--surface);border-right:1px solid var(--border);padding:16px;overflow-y:auto;}
+.panel.right{border-right:none;border-left:1px solid var(--border);}
+.grp{margin-bottom:20px;}
+.grp h3{font-size:13px;color:var(--muted);margin-bottom:10px;border-bottom:1px solid var(--border);padding-bottom:6px;}
+.veic{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;background:var(--surface2);padding:8px 10px;border-radius:8px;}
+.veic small{color:var(--muted);font-size:11px;}
+.stepper{display:flex;align-items:center;gap:8px;}
+.stepper button{width:26px;height:26px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:6px;cursor:pointer;font-size:16px;line-height:1;}
+.stepper span{min-width:20px;text-align:center;font-weight:600;}
+select,input[type=text]{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:8px;font-family:inherit;font-size:13px;margin-bottom:8px;}
+.modo{display:flex;gap:8px;margin-bottom:8px;}
+.modo button{flex:1;padding:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);border-radius:8px;cursor:pointer;font-family:'Barlow Condensed';font-weight:700;letter-spacing:1px;text-transform:uppercase;font-size:13px;}
+.modo button.on{background:var(--accent);color:#00202a;border-color:var(--accent);}
+.btn-main{width:100%;padding:13px;background:var(--accent);color:#00202a;border:none;border-radius:10px;font-family:'Barlow Condensed';font-weight:700;font-size:17px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;}
+.btn-main:hover{filter:brightness(1.1);}
+.btn-main:disabled{opacity:.5;cursor:wait;}
+#map{width:100%;height:100%;background:#0a0e14;}
+.mapwrap{position:relative;}
+.tabs{position:absolute;top:12px;left:12px;z-index:500;display:flex;gap:6px;}
+.tabs button{padding:6px 14px;background:rgba(22,27,34,.92);border:1px solid var(--border);color:var(--muted);border-radius:8px;cursor:pointer;font-family:'Barlow Condensed';font-weight:700;text-transform:uppercase;letter-spacing:1px;font-size:12px;}
+.tabs button.on{color:var(--accent);border-color:var(--accent);}
+.card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;cursor:pointer;transition:.15s;border-left-width:4px;}
+.card:hover{border-color:rgba(255,255,255,.25);}
+.card.sel{background:#233041;}
+.card .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;}
+.card .veicnome{font-family:'Barlow Condensed';font-weight:700;text-transform:uppercase;letter-spacing:1px;}
+.card .ocup{font-family:'Bebas Neue';font-size:20px;}
+.card .meta{color:var(--muted);font-size:12px;line-height:1.6;}
+.card .acts{display:flex;gap:6px;margin-top:8px;}
+.card .acts button{flex:1;padding:6px;font-size:11px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:6px;cursor:pointer;text-transform:uppercase;letter-spacing:.5px;font-family:'Barlow Condensed';font-weight:700;}
+.card .acts button.save{background:var(--ok);color:#003317;border-color:var(--ok);}
+.bandeja{background:rgba(245,200,0,.09);border:1px solid rgba(245,200,0,.35);border-radius:10px;padding:12px;margin-bottom:10px;}
+.bandeja h3{color:var(--warn);font-size:14px;}
+.bandeja small{color:var(--warn);opacity:.85;font-size:12px;}
+.hist{font-size:12px;}
+.hist .rota{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;}
+.hist .rota .nome{font-weight:600;}
+.hist .rota .x{float:right;color:#ff6b6b;cursor:pointer;font-size:16px;line-height:1;}
+.empty{color:var(--muted);text-align:center;padding:30px 10px;font-size:13px;}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ok);color:#003317;padding:12px 22px;border-radius:10px;font-weight:600;z-index:1000;opacity:0;transition:.3s;pointer-events:none;}
+.toast.show{opacity:1;}
+.marker-num{background:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;border:2px solid #000;font-family:'Barlow';}
+.leaflet-popup-content{font-family:'Barlow';font-size:13px;}
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <div class="brand">ROTAS <span>· Frinense · saída Itaperuna</span></div>
+  <div class="kpis">
+    <div class="kpi"><b id="k-ped">–</b><small>pedidos pool</small></div>
+    <div class="kpi"><b id="k-kg">–</b><small>toneladas</small></div>
+    <div class="kpi"><b id="k-cid">–</b><small>cidades</small></div>
+    <div class="kpi"><b id="k-aloc">–</b><small>alocados</small></div>
+    <div class="kpi"><b id="k-sobra" style="color:var(--warn)">–</b><small>sobra</small></div>
+  </div>
+</div>
+
+<div class="wrap">
+  <!-- CONTROLES -->
+  <div class="panel">
+    <div class="grp">
+      <h3>Frota disponível hoje</h3>
+      <div id="frota"></div>
+    </div>
+    <div class="grp">
+      <h3>Modo</h3>
+      <div class="modo">
+        <button class="on" data-modo="automatico" onclick="setModo(this)">Automático</button>
+        <button data-modo="selecao" onclick="setModo(this)">Seleção</button>
+      </div>
+      <small style="color:var(--muted);font-size:11px;">Automático prioriza os pedidos mais antigos.</small>
+    </div>
+    <div class="grp">
+      <h3>Filtros</h3>
+      <select id="f-uf" multiple size="4"></select>
+      <select id="f-carne" multiple size="4"></select>
+      <select id="f-vend"><option value="">Todos os vendedores</option></select>
+    </div>
+    <button class="btn-main" id="btn-montar" onclick="montar()">Montar rotas</button>
+  </div>
+
+  <!-- MAPA -->
+  <div class="panel mapwrap" style="padding:0;border:none;">
+    <div class="tabs">
+      <button class="on" id="tab-plan" onclick="verTab('plan')">Planejamento</button>
+      <button id="tab-hist" onclick="verTab('hist')">Histórico</button>
+    </div>
+    <div id="map"></div>
+  </div>
+
+  <!-- RESULTADO / HISTÓRICO -->
+  <div class="panel right">
+    <div id="view-plan">
+      <div class="grp"><h3>Cargas montadas</h3><div id="cargas"><div class="empty">Configure a frota e clique em <b>Montar rotas</b>.</div></div></div>
+      <div id="bandeja-box"></div>
+    </div>
+    <div id="view-hist" style="display:none;">
+      <div class="grp"><h3>Rotas salvas (histórico)</h3><div id="hist" class="hist"><div class="empty">Carregando…</div></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const CORES=["#35E0E5","#F5C800","#ff6b9d","#8b7dff","#3ddc84","#ff9f45","#5db4ff","#e05de0"];
+let MODO="automatico", FROTA={}, ULTIMO=null, MAP=null, LAYER=null, SEL=null;
+
+function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2200);}
+function setModo(b){document.querySelectorAll(".modo button").forEach(x=>x.classList.remove("on"));b.classList.add("on");MODO=b.dataset.modo;}
+
+function initMap(){
+  MAP=L.map("map",{zoomControl:true}).setView([-21.2,-41.9],7);
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+    {attribution:"© OpenStreetMap © CARTO",maxZoom:19}).addTo(MAP);
+  LAYER=L.layerGroup().addTo(MAP);
+}
+
+async function carregarPool(force){
+  const r=await fetch("/pool"+(force?"?force=true":""));const d=await r.json();
+  document.getElementById("k-ped").textContent=d.total;
+  document.getElementById("k-kg").textContent=(d.kg/1000).toFixed(1);
+  document.getElementById("k-cid").textContent=d.cidades;
+  // frota
+  FROTA={};let h="";
+  for(const[t,cap]of Object.entries(d.frota_cadastro)){FROTA[t]=0;
+    h+=`<div class="veic"><div><b>${t}</b><br><small>${(cap/1000)}t</small></div>
+    <div class="stepper"><button onclick="stepFrota('${t}',-1)">−</button>
+    <span id="q-${t}">0</span><button onclick="stepFrota('${t}',1)">+</button></div></div>`;}
+  document.getElementById("frota").innerHTML=h;
+  fillSel("f-uf",d.ufs);fillSel("f-carne",d.tipos_carne);
+  const v=document.getElementById("f-vend");d.vendedores.forEach(x=>v.insertAdjacentHTML("beforeend",`<option>${x}</option>`));
+}
+function fillSel(id,arr){const s=document.getElementById(id);
+  s.insertAdjacentHTML("afterbegin",`<option disabled style="color:#666">${id=="f-uf"?"UF (opcional)":"Tipo carne (opcional)"}</option>`);
+  arr.forEach(x=>s.insertAdjacentHTML("beforeend",`<option value="${x}">${x}</option>`));}
+function stepFrota(t,d){FROTA[t]=Math.max(0,FROTA[t]+d);document.getElementById("q-"+t).textContent=FROTA[t];}
+function getSel(id){return [...document.getElementById(id).selectedOptions].map(o=>o.value).filter(v=>v);}
+
+async function montar(){
+  const frota=Object.fromEntries(Object.entries(FROTA).filter(([k,v])=>v>0));
+  if(!Object.keys(frota).length){toast("Selecione ao menos 1 caminhão");return;}
+  const filtros={};
+  const uf=getSel("f-uf");if(uf.length)filtros.uf=uf;
+  const carne=getSel("f-carne");if(carne.length)filtros.tipo_carne=carne;
+  const vend=document.getElementById("f-vend").value;if(vend)filtros.vendedor=[vend];
+  const btn=document.getElementById("btn-montar");btn.disabled=true;btn.textContent="Calculando…";
+  try{
+    const r=await fetch("/montar",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({frota,modo:MODO,filtros,segundos:8})});
+    ULTIMO=await r.json();renderResultado();
+  }catch(e){toast("Erro ao montar");}
+  btn.disabled=false;btn.textContent="Montar rotas";
+}
+
+function renderResultado(){
+  const R=ULTIMO,rs=R.resumo;
+  document.getElementById("k-aloc").textContent=rs.alocados;
+  document.getElementById("k-sobra").textContent=rs.sobra;
+  // cards
+  let h="";
+  R.cargas.forEach((c,i)=>{const cor=CORES[i%CORES.length];
+    const nome=`Rota ${String.fromCharCode(65+i)} · ${c.veiculo}`;
+    const cids=c.stops.map(s=>s.cidade).join(" → ");
+    h+=`<div class="card" style="border-left-color:${cor}" onclick="focar(${i})" id="card-${i}">
+      <div class="top"><span class="veicnome" style="color:${cor}">${nome}</span>
+      <span class="ocup" style="color:${c.ocupacao>=95?'var(--ok)':'var(--warn)'}">${c.ocupacao}%</span></div>
+      <div class="meta">${c.n_cidades} cidades · ${c.n_pedidos} ped · ${(c.peso_kg/1000).toFixed(2)}t / ${(c.cap_kg/1000)}t<br>
+      <span style="opacity:.8">Itaperuna → ${cids}</span></div>
+      <div class="acts">
+        <button onclick="event.stopPropagation();salvar(${i})" class="save">Salvar romaneio</button>
+      </div></div>`;});
+  document.getElementById("cargas").innerHTML=h||`<div class="empty">Nenhuma carga (pool vazio para os filtros).</div>`;
+  // bandeja
+  const bb=document.getElementById("bandeja-box");
+  if(rs.sobra>0){bb.innerHTML=`<div class="bandeja"><h3>⚠ ${rs.sobra} pedidos não alocados</h3>
+    <small>${(rs.kg_sobra/1000).toFixed(1)} t — falta capacidade. Adicionar caminhão?</small></div>`;}
+  else bb.innerHTML="";
+  desenhar(R.cargas,R.resumo.depot);
+}
+
+function desenhar(cargas,depot){
+  LAYER.clearLayers();
+  L.marker([depot.lat,depot.lng],{icon:L.divIcon({html:'<div class="marker-num" style="background:#CC0000;color:#fff;border-color:#fff">◆</div>',className:'',iconSize:[24,24]})})
+    .addTo(LAYER).bindPopup("<b>Itaperuna</b><br>Origem");
+  const bounds=[[depot.lat,depot.lng]];
+  cargas.forEach((c,i)=>{const cor=CORES[i%CORES.length];
+    const pts=[[depot.lat,depot.lng]];
+    c.stops.forEach(s=>{pts.push([s.lat,s.lng]);bounds.push([s.lat,s.lng]);
+      const peds=s.pedidos.map(p=>`${p.pedido} · ${(p.kg)}kg`).join("<br>");
+      L.marker([s.lat,s.lng],{icon:L.divIcon({html:`<div class="marker-num" style="background:${cor};border-color:#000">${s.ordem}</div>`,className:'',iconSize:[24,24]})})
+        .addTo(LAYER).bindPopup(`<b>${s.cidade}</b> · ${(s.kg/1000).toFixed(2)}t<br>${peds}`)
+        .on("click",()=>focar(i));});
+    L.polyline(pts,{color:cor,weight:3,opacity:.8,dashArray:"1"}).addTo(LAYER).cargaIdx=i;});
+  if(bounds.length>1)MAP.fitBounds(bounds,{padding:[40,40]});
+}
+
+function focar(i){
+  SEL=SEL===i?null:i;
+  document.querySelectorAll(".card").forEach((c,j)=>c.classList.toggle("sel",j===SEL));
+  LAYER.eachLayer(l=>{if(l instanceof L.Polyline){l.setStyle({opacity:SEL===null?.8:(l.cargaIdx===SEL?1:.12)});}});
+}
+
+async function salvar(i){
+  const c=ULTIMO.cargas[i];
+  const letra=String.fromCharCode(65+i);
+  const nome=prompt("Nome do romaneio:",`Rota ${letra} · ${c.veiculo} · ${new Date().toLocaleDateString('pt-BR')}`);
+  if(!nome)return;
+  const cidades=c.stops.map(s=>s.cidade);
+  const r=await fetch("/salvar-rota",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({nome,veiculo:c.veiculo,cap_kg:c.cap_kg,modo:MODO,pedidos_ids:c.pedidos_ids,cidades})});
+  const d=await r.json();
+  if(d.ok){toast(`Romaneio salvo (${d.n_pedidos} pedidos)`);await carregarPool(true);}
+  else toast("Erro ao salvar");
+}
+
+/* ---- Histórico ---- */
+function verTab(t){
+  document.getElementById("tab-plan").classList.toggle("on",t==="plan");
+  document.getElementById("tab-hist").classList.toggle("on",t==="hist");
+  document.getElementById("view-plan").style.display=t==="plan"?"block":"none";
+  document.getElementById("view-hist").style.display=t==="hist"?"block":"none";
+  if(t==="hist")carregarHist();
+}
+async function carregarHist(){
+  const r=await fetch("/rotas");const d=await r.json();
+  const el=document.getElementById("hist");
+  if(!d.rotas.length){el.innerHTML='<div class="empty">Nenhuma rota salva ainda.</div>';LAYER&&LAYER.clearLayers();return;}
+  el.innerHTML=d.rotas.map(x=>`<div class="rota" onclick="verRota(${x.id})">
+    <span class="x" onclick="event.stopPropagation();excluirRota(${x.id})">×</span>
+    <div class="nome">${x.nome}</div>
+    <div style="color:var(--muted)">${x.veiculo} · ${(x.peso_kg/1000).toFixed(2)}t (${x.ocupacao}%) · ${x.n_pedidos} ped · ${x.data}</div>
+  </div>`).join("");
+}
+async function verRota(id){
+  const r=await fetch("/rota/"+id);const c=await r.json();
+  desenhar([{stops:c.stops,cap_kg:c.cap_kg,peso_kg:c.peso_kg}],c.depot);
+}
+async function excluirRota(id){
+  if(!confirm("Excluir esta rota? Os pedidos voltam pro pool."))return;
+  await fetch("/rota/"+id,{method:"DELETE"});toast("Rota excluída");carregarHist();carregarPool(true);
+}
+
+initMap();carregarPool();
+</script>
+</body>
+</html>
