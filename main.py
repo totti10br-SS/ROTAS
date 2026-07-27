@@ -120,6 +120,16 @@ def municipios() -> pd.DataFrame:
                 break
     return _MUN
 
+_MESO = None
+def mesorregioes() -> pd.DataFrame:
+    global _MESO
+    if _MESO is None:
+        for p in ["mesorregioes.csv", "/app/mesorregioes.csv"]:
+            if os.path.exists(p):
+                _MESO = pd.read_csv(p, dtype={"ibge": str}).set_index("ibge")
+                break
+    return _MESO
+
 def depot_coord():
     m = municipios()
     r = m.loc[DEPOT_IBGE]
@@ -154,6 +164,10 @@ def preparar(df: pd.DataFrame) -> pd.DataFrame:
     m = municipios()
     ped = ped.join(m[["latitude", "longitude"]], on="ibge")
     ped["cidade"] = ped["ibge"].map(m["nome"])   # nome canonico (texto CIDADE e sujo)
+    # mesorregiao oficial IBGE (regiao do estado). Sem meso -> rotulo pela UF.
+    meso = mesorregioes()
+    ped["mesorregiao"] = ped["ibge"].map(meso["mesorregiao"])
+    ped["mesorregiao"] = ped["mesorregiao"].fillna("(s/ região) " + ped["uf"].astype(str))
     ped["emissao"] = ped["emissao"].dt.strftime("%Y-%m-%d")
     return ped
 
@@ -164,7 +178,7 @@ def aplicar_filtros(ped, f: dict) -> pd.DataFrame:
     p = ped.copy()
     if f.get("pedidos_ids"):
         return p[p["pedido"].isin(f["pedidos_ids"])]
-    for campo, col in [("uf", "uf"), ("cidade", "cidade")]:
+    for campo, col in [("uf", "uf"), ("cidade", "cidade"), ("mesorregiao", "mesorregiao")]:
         if f.get(campo):
             alvos = [_norm(x) for x in f[campo]]
             p = p[p[col].apply(_norm).isin(alvos)]
@@ -286,7 +300,8 @@ def _lin(r):
     return {"pedido": r["pedido"], "cidade": r["cidade"], "uf": r["uf"], "kg": int(r["kg"]),
             "cliente": r["cliente"], "vendedor": r["vendedor"],
             "idade_dias": int(r["idade_dias"]), "emissao": r["emissao"],
-            "tipo_carne": r["tipo_carne"], "ibge": r["ibge"]}
+            "tipo_carne": r["tipo_carne"], "ibge": r["ibge"],
+            "mesorregiao": r.get("mesorregiao", "")}
 
 # ─────────────────────────────────────────────
 #  SQLITE  (romaneios = historico)
@@ -340,6 +355,7 @@ def get_pool(force: bool = False):
     return {
         "total": len(p), "kg": int(p["kg"].sum()), "cidades": int(p["cidade"].nunique()),
         "ufs": sorted(p["uf"].dropna().unique().tolist()),
+        "mesorregioes": sorted(p["mesorregiao"].dropna().unique().tolist()),
         "vendedores": sorted(p["vendedor"].dropna().unique().tolist()),
         "tipos_carne": sorted({t for v in p["tipo_carne"] for t in str(v).split(", ") if t}),
         "frota_cadastro": FROTA_CADASTRO,

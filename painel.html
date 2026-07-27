@@ -95,7 +95,8 @@ select,input[type=text]{width:100%;background:var(--surface2);border:1px solid v
     </div>
     <div class="grp">
       <h3>Filtros</h3>
-      <select id="f-uf" multiple size="4"></select>
+      <select id="f-meso" multiple size="6"></select>
+      <select id="f-uf" multiple size="3"></select>
       <select id="f-carne" multiple size="4"></select>
       <select id="f-vend"><option value="">Todos os vendedores</option></select>
     </div>
@@ -152,11 +153,12 @@ async function carregarPool(force){
     <div class="stepper"><button onclick="stepFrota('${t}',-1)">−</button>
     <span id="q-${t}">0</span><button onclick="stepFrota('${t}',1)">+</button></div></div>`;}
   document.getElementById("frota").innerHTML=h;
-  fillSel("f-uf",d.ufs);fillSel("f-carne",d.tipos_carne);
+  fillSel("f-meso",d.mesorregioes);fillSel("f-uf",d.ufs);fillSel("f-carne",d.tipos_carne);
   const v=document.getElementById("f-vend");d.vendedores.forEach(x=>v.insertAdjacentHTML("beforeend",`<option>${x}</option>`));
 }
 function fillSel(id,arr){const s=document.getElementById(id);
-  s.insertAdjacentHTML("afterbegin",`<option disabled style="color:#666">${id=="f-uf"?"UF (opcional)":"Tipo carne (opcional)"}</option>`);
+  const lbl={"f-meso":"Região (opcional)","f-uf":"UF (opcional)","f-carne":"Tipo carne (opcional)"}[id]||"";
+  s.insertAdjacentHTML("afterbegin",`<option disabled style="color:#666">${lbl}</option>`);
   arr.forEach(x=>s.insertAdjacentHTML("beforeend",`<option value="${x}">${x}</option>`));}
 function stepFrota(t,d){FROTA[t]=Math.max(0,FROTA[t]+d);document.getElementById("q-"+t).textContent=FROTA[t];}
 function getSel(id){return [...document.getElementById(id).selectedOptions].map(o=>o.value).filter(v=>v);}
@@ -165,6 +167,7 @@ async function montar(){
   const frota=Object.fromEntries(Object.entries(FROTA).filter(([k,v])=>v>0));
   if(!Object.keys(frota).length){toast("Selecione ao menos 1 caminhão");return;}
   const filtros={};
+  const meso=getSel("f-meso");if(meso.length)filtros.mesorregiao=meso;
   const uf=getSel("f-uf");if(uf.length)filtros.uf=uf;
   const carne=getSel("f-carne");if(carne.length)filtros.tipo_carne=carne;
   const vend=document.getElementById("f-vend").value;if(vend)filtros.vendedor=[vend];
